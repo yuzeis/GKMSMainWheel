@@ -11,6 +11,7 @@ COMMANDS = {
     "master-bootstrap": "GakumasCLI.tools.master_bootstrap",
     "gen-tables": "GakumasCLI.native.gen_tables",
     "native-coverage": "GakumasCLI.native.native_coverage",
+    "search-ab": "GakumasCLI.native.search_ab",
 }
 
 

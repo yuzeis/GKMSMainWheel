@@ -49,7 +49,7 @@ def _setup_worker(master, master_path):
     _native(master if same else None)
 
 
-def native_policy_search(session, *, deadline=5, seed=182, variant="gnrpa", transitions=None, levels=2,
+def native_policy_search(session, *, deadline=5, seed=182, variant="gnrpa", transitions=None, levels=None,
                          iterations=8, on_incumbent=None, prior=None, cancel=None, initial_route=None,
                          persist_policy=True, repetition_limit=0, stabilization=1, rules=None):
     """``rules``: a timeline's RuleSet -- on a core that takes rules the native search applies them"""
@@ -91,7 +91,7 @@ def native_policy_search(session, *, deadline=5, seed=182, variant="gnrpa", tran
         stats2["native_fallback"] = f"status {stats['status']} line {stats['unsup_line']} info {stats['unsup_info']}"
         return b, path2, stats2
     stats["native"] = True
-    stats["native_levels"], stats["native_iterations"] = levels, iterations
+    stats["native_levels"], stats["native_iterations"] = stats.get("levels", levels), iterations
     return SV.replay_session(session, path), path, stats
 
 
