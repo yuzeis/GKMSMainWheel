@@ -82,3 +82,20 @@ def test_import_rejects_unknown(master, loadouts):
         import_observation(s, {"schema": "x"})
     with pytest.raises(ValueError, match="statuses"):
         import_observation(s, {"schema": SCHEMA, "statuses": {"nonsense": 1}})
+
+
+def test_import_turn_parameter_types(master, loadouts):
+    """the 審査日程 the screen shows (one parameter type per turn) replaces the opening's draw; the current turn's type follows."""
+    lo = next(iter(loadouts.values()))
+    s, _ = build_hif_loadout_session(master, lo, seed=2)
+    n = int(s.config.limit_turn)
+    types = [(t % 3) + 1 for t in range(n)]
+    import_observation(s, {"schema": SCHEMA, "turn_parameter_types": types})
+    assert export_observation(s)["turn_parameter_types"] == types
+    assert s.state.current_parameter_type == types[0]
+    s.step(("end",))
+    assert s.state.current_parameter_type == types[1]
+    import_observation(s, {"schema": SCHEMA, "turn": 4})
+    assert s.state.current_parameter_type == types[3]
+    with pytest.raises(ValueError, match="turn_parameter_types"):
+        import_observation(s, {"schema": SCHEMA, "turn_parameter_types": [4]})

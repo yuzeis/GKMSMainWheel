@@ -22,7 +22,8 @@ leaves out: every key below is optional and an absent key leaves the session's v
                   "full_power_point": 2,          # 全力値
                   "stance": "Concentration",      # 指針: None / Concentration / Preservation / FullPower / Leisurely / OverPreservation
                   "stance_step": 1},
-     "drinks": ["pdrink_..."]}
+     "drinks": ["pdrink_..."],
+     "turn_parameter_types": [2, 3, 3, 1, ...]}    # 審査日程: 1 Vo / 2 Da / 3 Vi for turns 1..N (replaces the opening's draw)
 
 Cards: each listed zone is rewritten in the listed order.  A listed card takes a card the session already has with the
 same id and displayed upgrade (current_upgrade_count) -- first one in the same zone, else one from a zone that is not
@@ -42,7 +43,7 @@ SCALARS = {"score": "score", "stamina": "stamina", "block": "block", "playable":
 STATUSES = {"lesson_buff": "lesson_buff", "review": "review", "aggressive": "aggressive",
             "full_power_point": "full_power_point", "stance_step": "idol_status_step_count"}
 SPECIAL = ("parameter_buff", "parameter_buff_multiple", "stance")
-KEYS = {"schema", "turn", "statuses", "drinks", *SCALARS, *ZONES}
+KEYS = {"schema", "turn", "statuses", "drinks", "turn_parameter_types", *SCALARS, *ZONES}
 
 
 def _key(card):
@@ -58,6 +59,10 @@ def _check(obs):
     bad = set(obs.get("statuses") or {}) - set(STATUSES) - set(SPECIAL)
     if bad:
         raise ValueError(f"observe_import: unknown statuses {sorted(bad)}")
+    tpt = obs.get("turn_parameter_types")
+    if tpt is not None and (not tpt or len(tpt) > len(L.GkmsState().d_turn_parameter_types)
+                            or any(int(t) not in (1, 2, 3) for t in tpt)):
+        raise ValueError(f"observe_import: turn_parameter_types {tpt!r}")
     stance = (obs.get("statuses") or {}).get("stance", None)
     if stance is not None and stance not in L._STATUS_TO_CODE:
         raise ValueError(f"observe_import: stance {stance!r}")
@@ -101,15 +106,24 @@ def _piles(view, obs):
         setattr(deck, z, new[z])
 
 
+def _turn_types(g, types):
+    g.d_has_turn_parameter_types, g.d_n_turn_parameter_types = 1, len(types)
+    for i, t in enumerate(types):
+        g.d_turn_parameter_types[i] = int(t)
+
+
 def _scalars(view, obs):
     st = view.g.st
+    if obs.get("turn_parameter_types") is not None:
+        _turn_types(view.g, obs["turn_parameter_types"])
     turn = obs.get("turn")
-    if turn is not None and int(turn) != int(view.g.s_turn):
-        turn = int(turn)
-        view.g.s_turn = st.turn = view.g.d_current_turn = turn
-        if view.g.d_has_turn_parameter_types and 0 < turn <= view.g.d_n_turn_parameter_types:
-            view.g.d_current_parameter_type = st.current_parameter_type = view.g.d_turn_parameter_types[turn - 1]
+    moved = turn is not None and int(turn) != int(view.g.s_turn)
+    if moved:
+        view.g.s_turn = st.turn = view.g.d_current_turn = int(turn)
     turn = int(st.turn)
+    if (moved or obs.get("turn_parameter_types") is not None) and \
+            view.g.d_has_turn_parameter_types and 0 < turn <= view.g.d_n_turn_parameter_types:
+        view.g.d_current_parameter_type = st.current_parameter_type = view.g.d_turn_parameter_types[turn - 1]
     for k, name in SCALARS.items():
         if obs.get(k) is not None:
             setattr(st, name, int(obs[k]))
@@ -167,7 +181,9 @@ def export_observation(session):
                         "parameter_buff": int(st.parameter_buff_remaining),
                         "parameter_buff_multiple": 0 if pbm == L.NONE_I64 else max(0, pbm - turn + 1),
                         "stance": view["stance"]},
-           "drinks": list(session.drinks)}
+           "drinks": list(session.drinks),
+           "turn_parameter_types": [int(g.d_turn_parameter_types[i]) for i in range(g.d_n_turn_parameter_types)]
+           if g.d_has_turn_parameter_types else None}
     return out
 
 
