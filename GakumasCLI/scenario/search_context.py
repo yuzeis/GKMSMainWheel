@@ -8,6 +8,27 @@ import os
 from typing import Any, Callable, Optional
 
 
+# The GNRPA nesting depth a search takes when its caller gives none (levels=None), by budget.  Measured with
+# GakumasCLI/native/search_ab.py, level 3 against level 2 at the same budget, game by game (wins / losses over the six
+# coverage baselines x 50 exams; the native core, one search seed): a third level loses on small budgets
+# (40,000 transitions 63 / 236, 120,000 87 / 213), breaks even at 240,000 (153 / 143) and wins from 320,000 on
+# (185 / 111; 480,000 219 / 77; 1,920,000 244 / 53), for every archetype at 480,000 and above.  By seconds: 0.5 s
+# 195 / 101, 1 s 228 / 69, 2 s 238 / 59 on an M-series Mac with 8 searches at once (0.5 s there is ~0.35M-0.39M
+# transitions, 1 s ~0.7M) -- the seconds threshold is set at 1 s so that a machine half as fast still clears 320,000.
+AUTO_LEVELS_MIN_TRANSITIONS = 320_000
+AUTO_LEVELS_MIN_DEADLINE = 1.0
+
+
+def auto_levels(transitions=None, deadline=None):
+    """The nesting depth for a budget: 3 when every budget given is at or above its threshold, else 2."""
+    fits = []
+    if transitions is not None:
+        fits.append(int(transitions) >= AUTO_LEVELS_MIN_TRANSITIONS)
+    if deadline is not None:
+        fits.append(float(deadline) >= AUTO_LEVELS_MIN_DEADLINE)
+    return 3 if fits and all(fits) else 2
+
+
 def _text(env, name, default=""):
     return env.get(name, default).strip().lower()
 

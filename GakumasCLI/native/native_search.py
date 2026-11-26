@@ -256,12 +256,16 @@ class NativeSearch:
         return table, keep
 
     # -- search ----------------------------------------------------------
-    def policy_search(self, session, *, deadline=None, seed=182, variant="gnrpa", transitions=None, levels=2,
+    def policy_search(self, session, *, deadline=None, seed=182, variant="gnrpa", transitions=None, levels=None,
                       iterations=8, prior=None, stabilization=1, repetition_limit=0, persist_policy=True,
                       import_state=True, rules=None, pick_variants=0):
         """``rules``: a scenario.timeline.RuleSet; the core must take rules (``rules_ok``), else RuntimeError -- the
-        caller falls back to the Python search.
+        caller falls back to the Python search.  ``levels`` None: by the budget (scenario.search_context.auto_levels),
+        the chosen depth is in the stats as ``levels``.
         """
+        if levels is None:
+            from GakumasCLI.scenario.search_context import auto_levels
+            levels = auto_levels(transitions, deadline)
         if rules is not None and not self.rules_ok:
             raise RuntimeError("this core takes no timeline rules")
         if variant not in VARIANT:
@@ -315,7 +319,7 @@ class NativeSearch:
                                                 "adaptation_choices", "incumbent_updates", "top_level_calls",
                                                 "top_level_adaptations", "repetition_stops", "n_keys")}
         best = int(r.best_score) - int(r.best_major) * MAJOR_SCALE
-        stats.update(status=int(rc), best_score=best, elapsed_seconds=elapsed,
+        stats.update(status=int(rc), best_score=best, elapsed_seconds=elapsed, levels=int(levels),
                      prep_seconds=round(t0 - prep_started, 4),
                      unsup_line=int(r.unsup_line), unsup_info=int(r.unsup_info),
                      curve=[dict(score=int(r.curve_score[i]), transitions=int(r.curve_transitions[i]),

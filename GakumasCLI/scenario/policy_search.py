@@ -185,9 +185,14 @@ def _probabilities(keys, bias, policy):
 
 
 def policy_search(session, *, deadline=5, seed=182, variant='gnrpa',
-                  transitions=None, levels=2, iterations=8, on_incumbent=None, prior=None, cancel=None,
+                  transitions=None, levels=None, iterations=8, on_incumbent=None, prior=None, cancel=None,
                   initial_route=None, persist_policy=True, repetition_limit=0, stabilization=1, rules=None):
-    """Return a replayable incumbent, never an optimality certificate."""
+    """Return a replayable incumbent, never an optimality certificate.  ``levels`` None: by the transition budget,
+    as the native search (scenario.search_context.auto_levels); a deadline alone keeps 2 -- this search makes two
+    orders of magnitude fewer transitions per second than the native core's, so its seconds are no measure of them."""
+    if levels is None:
+        from GakumasCLI.scenario.search_context import auto_levels
+        levels = auto_levels(transitions)
     if variant not in ('random', 'nrpa', 'gnrpa'):
         raise ValueError(variant)
     if levels < 1 or iterations < 1:
